@@ -9,9 +9,6 @@ export function renderHeader(element: HTMLElement, router: Navigo) {
                 <h1 class="academic-title font-serif font-bold">The Linguistic Laboratory</h1>
             </div>
             <div class="flex items-center space-x-8" data-purpose="top-meta-nav">
-                <div class="text-xs">
-                    <span class="font-bold">0/0</span> <span class="text-text-muted">learned</span>
-                </div>
                 <div class="flex items-center space-x-4">
                      <button class="bg-accent-black text-white text-[10px] font-bold py-2.5 px-6 uppercase tracking-widest hover:bg-gray-800 transition-colors" id="account-button" data-navigo href="/account">
                         Account

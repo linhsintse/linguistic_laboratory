@@ -22,6 +22,7 @@ let focusWordsByDay: { [key: string]: string } = {};
  */
 function getWeekMonday(offset: number): Date {
     const today = new Date();
+    today.setHours(0, 0, 0, 0); // Normalize to midnight to avoid time-of-day inconsistencies
     const day = today.getDay();
     const diff = (day === 0 ? -6 : 1) - day; // Adjust for Sunday (0) being end of ISO week
     const monday = new Date(today.setDate(today.getDate() + diff));
@@ -51,7 +52,7 @@ function enterEditMode(slot: HTMLElement) {
     const input = document.createElement('input');
     input.type = 'text';
     input.value = currentWord;
-    input.className = 'word-edit-input font-serif text-xl block leading-none mb-1 bg-transparent border-none p-0 w-full';
+    input.className = 'word-edit-input font-serif text-lg block leading-none mb-1 bg-transparent border-none p-0 w-full';
     input.style.outline = 'none';
 
     if (wordTextSpan) {
@@ -64,7 +65,12 @@ function enterEditMode(slot: HTMLElement) {
     }
     input.focus();
 
-    const save = () => {
+    let isSaving = false;
+
+    const save = async () => {
+        if (isSaving) return;
+        isSaving = true;
+
         const newWord = input.value.trim();
         const day = (slot as HTMLDivElement).dataset.day!;
         const index = parseInt((slot as HTMLDivElement).dataset.index!);
@@ -75,12 +81,14 @@ function enterEditMode(slot: HTMLElement) {
         wordsByDay[day][index] = newWord;
         
         createAndPopulateCalendar();
+        await saveCalendarData();
     };
 
     input.addEventListener('blur', save);
     input.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
             save();
+            input.blur(); // Trigger blur to close, but guard handles duplicate save
         }
     });
 }
@@ -115,35 +123,35 @@ async function createAndPopulateCalendar() {
 
     for (const day of DAYS) {
         const dayColumn = document.createElement('section');
-        dayColumn.className = 'day-column border-r border-gray-200';
+        dayColumn.className = `day-column ${day === 'SUN' ? '' : 'border-r border-gray-200'}`;
 
         const dayDate = getWeekMonday(weekOffset);
         dayDate.setDate(dayDate.getDate() + DAYS.indexOf(day));
 
         dayColumn.innerHTML = `
-            <div class="bg-academic-gray border-b border-gray-200 p-3 flex justify-between items-center">
+            <div class="bg-academic-gray border-b border-gray-200 p-2 flex justify-between items-center">
                 <span class="text-[11px] font-bold uppercase tracking-wider">${day}</span>
                 <span class="text-[9px] text-text-muted italic">${dayDate.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' })}</span>
             </div>
-            <div class="p-3 border-b border-gray-200 bg-white">
+            <div class="p-2 border-b border-gray-200 bg-white">
                 <p class="text-[9px] font-bold text-text-muted uppercase tracking-widest mb-1">FOCUS</p>
-                <input class="focus-input font-serif italic text-text-muted text-base bg-transparent border-none p-0 w-full" placeholder="e.g. ambi–" value="${focusWordsByDay[day] || ''}" data-day="${day}" />
+                <input class="focus-input font-serif italic text-text-muted text-sm bg-transparent border-none p-0 w-full" placeholder="e.g. ambi–" value="${focusWordsByDay[day] || ''}" data-day="${day}" />
             </div>
             <div class="word-slots-container">
                 ${Array(7).fill(0).map((_, i) => {
                     const word = wordsByDay[day]?.[i] || '';
                     return `
-                        <div class="word-slot p-3 h-24 flex flex-col justify-center" data-day="${day}" data-index="${i}">
+                        <div class="word-slot p-2 h-20 flex flex-col justify-center" data-day="${day}" data-index="${i}">
                             <div class="flex items-start space-x-2">
                                 <span class="text-[10px] font-bold text-text-muted mt-1">${i + 1}</span>
                                 <div class="w-full">
                                     ${word ? `
-                                        <a href="https://www.thewordfinder.com/define/${word.toLowerCase()}" target="_blank" class="word-text font-serif text-xl block leading-none mb-1 cursor-pointer">${word}</a>
-                                        <span class="material-symbols-outlined edit-button text-[20px] text-gray-400 hover:text-black cursor-pointer select-none">edit</span>
+                                        <a href="https://www.thewordfinder.com/define/${word.toLowerCase()}" target="_blank" class="word-text font-serif text-lg block leading-none mb-1 cursor-pointer">${word}</a>
+                                        <span class="material-symbols-outlined edit-button text-[18px] text-gray-400 hover:text-black cursor-pointer select-none">edit</span>
                                     ` : `
-                                        <span class="font-serif italic text-xl text-text-muted block leading-none mb-1 cursor-pointer">word...</span>
+                                        <span class="font-serif italic text-lg text-text-muted block leading-none mb-1 cursor-pointer">word...</span>
                                     `}
-                                    <input class="morpheme-guide bg-transparent border-none py-1 mt-2 w-full text-sm" placeholder="prefix[root]suffix" />
+                                    <input class="morpheme-guide bg-transparent border-none py-1 mt-1 w-full text-xs" placeholder="prefix[root]suffix" />
                                 </div>
                             </div>
                         </div>
@@ -225,9 +233,9 @@ async function clearWords(offset: number) {
 }
 
 /**
- * Handles saving the progress.
+ * Saves the current calendar data to the backend.
  */
-async function handleSaveProgress() {
+async function saveCalendarData() {
     await clearWords(weekOffset);
     const savePromises: Promise<any>[] = [];
 
@@ -248,22 +256,12 @@ async function handleSaveProgress() {
     }
 
     await Promise.all(savePromises);
-    alert('Progress saved!');
-    // Reset wordsByDay to force a fetch on next calendar load
-    wordsByDay = {};
 }
 
 function addEventListeners() {
-    const saveButton = document.getElementById('save-progress-button') as HTMLButtonElement;
     const lastWeekButton = document.getElementById('last-week-button') as HTMLButtonElement;
     const nextWeekButton = document.getElementById('next-week-button') as HTMLButtonElement;
-    const newWeekButton = document.getElementById('new-week-button') as HTMLButtonElement;
-
-    if(saveButton) {
-        saveButton.addEventListener('click', () => {
-            handleSaveProgress();
-        });
-    }
+    const currentWeekButton = document.getElementById('current-week-button') as HTMLButtonElement;
 
     if(lastWeekButton) {
         lastWeekButton.addEventListener('click', () => {
@@ -281,9 +279,9 @@ function addEventListeners() {
         });
     }
 
-    if(newWeekButton) {
-        newWeekButton.addEventListener('click', () => {
-            weekOffset++;
+    if(currentWeekButton) {
+        currentWeekButton.addEventListener('click', () => {
+            weekOffset = 0;
             wordsByDay = {};
             createAndPopulateCalendar();
         });
@@ -292,17 +290,18 @@ function addEventListeners() {
 
 export function renderCalendar(element: HTMLElement) {
     element.innerHTML = `
-    <main class="calendar-container p-6">
-        <div class="calendar-grid grid grid-cols-7 gap-0 bg-white border-t border-l border-b border-gray-200 shadow-sm max-w-[95%] mx-auto" id="calendar-grid">
+    <main class="calendar-container p-4">
+        <div class="flex justify-between items-center max-w-[95%] mx-auto mb-4">
+             <h2 id="week-display" class="text-lg font-bold text-gray-700 uppercase tracking-wide"></h2>
+             <div class="flex space-x-2">
+                <button id="last-week-button" class="px-3 py-1 text-xs font-bold uppercase tracking-wider border border-gray-300 rounded hover:bg-gray-100 text-gray-600">Prev</button>
+                <button id="current-week-button" class="px-3 py-1 text-xs font-bold uppercase tracking-wider border border-gray-300 rounded hover:bg-gray-100 text-gray-600">This Week</button>
+                <button id="next-week-button" class="px-3 py-1 text-xs font-bold uppercase tracking-wider border border-gray-300 rounded hover:bg-gray-100 text-gray-600">Next</button>
+             </div>
+        </div>
+        <div class="calendar-grid grid grid-cols-7 gap-0 bg-white border border-gray-200 shadow-sm max-w-[95%] mx-auto" id="calendar-grid">
         </div>
     </main>
-    <footer class="border-t border-gray-200 bg-white py-4 px-8">
-        <div class="flex justify-center">
-            <button class="bg-accent-black text-white text-[10px] font-bold py-2.5 px-6 uppercase tracking-widest hover:bg-gray-800 transition-colors" id="save-progress-button">
-                Save Progress
-            </button>
-        </div>
-    </footer>
     `;
     createAndPopulateCalendar();
     addEventListeners();
