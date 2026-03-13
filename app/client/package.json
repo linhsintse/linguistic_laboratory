@@ -14,5 +14,8 @@
     "tailwindcss": "^3.4.1",
     "typescript": "^5.2.2",
     "vite": "^7.3.1"
+  },
+  "dependencies": {
+    "navigo": "^8.11.1"
   }
 }
