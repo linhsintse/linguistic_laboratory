@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
-import { addWordToWeek, getWordsForWeek, deleteWordsForWeek } from './database'; // Import the logic
+import { addWordToWeek, getWordsForWeek, deleteWordsForWeek, getAllMorphemes, searchWords, getProgress, getAccount } from './database'; // Import the logic
 
 const app = express();
 app.use(cors());
@@ -68,6 +68,58 @@ app.delete('/api/words', async (req, res) => {
     } catch (error) {
         console.error("Failed to delete words:", error);
         res.status(500).json({ error: "Internal server error while deleting words." });
+    }
+});
+
+// The GET route to search words
+app.get('/api/words/search', async (req, res) => {
+    try {
+        const query = req.query.q as string;
+        if (!query) {
+            return res.status(400).json({ error: "Missing 'q' query parameter." });
+        }
+        const words = await searchWords(query);
+        res.status(200).json(words);
+    } catch (error) {
+        console.error("Failed to search words:", error);
+        res.status(500).json({ error: "Internal server error while searching words." });
+    }
+});
+
+// The GET route to fetch progress
+app.get('/api/progress', async (req, res) => {
+    try {
+        const progress = await getProgress();
+        res.status(200).json(progress);
+    } catch (error) {
+        console.error("Failed to fetch progress:", error);
+        res.status(500).json({ error: "Internal server error while fetching progress." });
+    }
+});
+
+// The GET route to fetch account
+app.get('/api/account', async (req, res) => {
+    try {
+        const account = await getAccount();
+        if (account) {
+            res.status(200).json(account);
+        } else {
+            res.status(404).json({ error: "Account not found." });
+        }
+    } catch (error) {
+        console.error("Failed to fetch account:", error);
+        res.status(500).json({ error: "Internal server error while fetching account." });
+    }
+});
+
+// The GET route to fetch all morphemes
+app.get('/api/morphemes', async (req, res) => {
+    try {
+        const morphemes = await getAllMorphemes();
+        res.status(200).json(morphemes);
+    } catch (error) {
+        console.error("Failed to fetch morphemes:", error);
+        res.status(500).json({ error: "Internal server error while fetching morphemes." });
     }
 });
 

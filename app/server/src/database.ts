@@ -75,6 +75,78 @@ export async function addWordToWeek(
   }
 }
 
+/**
+ * Searches words containing the query string.
+ */
+export async function searchWords(query: string) {
+  try {
+    const words = await prisma.word.findMany({
+      where: {
+        text: {
+          contains: query,
+        },
+      },
+      orderBy: {
+        text: 'asc',
+      },
+    });
+    return words;
+  } catch (error) {
+    console.error("Database Error searching words:", error);
+    throw error;
+  }
+}
+
+/**
+ * Fetches the vocabulary progress (word and morpheme counts).
+ */
+export async function getProgress() {
+  try {
+    const totalWords = await prisma.word.count();
+    const totalMorphemes = await prisma.morpheme.count();
+    return { totalWords, totalMorphemes };
+  } catch (error) {
+    console.error("Database Error fetching progress:", error);
+    throw error;
+  }
+}
+
+/**
+ * Fetches the user account details.
+ */
+export async function getAccount() {
+  try {
+    const user = await prisma.user.findFirst({
+      select: {
+        id: true,
+        email: true,
+        name: true,
+      }
+    });
+    return user;
+  } catch (error) {
+    console.error("Database Error fetching account:", error);
+    throw error;
+  }
+}
+
+/**
+ * Fetches all morphemes from the database.
+ */
+export async function getAllMorphemes() {
+  try {
+    const morphemes = await prisma.morpheme.findMany({
+      orderBy: {
+        text: 'asc',
+      },
+    });
+    return morphemes;
+  } catch (error) {
+    console.error("Database Error fetching morphemes:", error);
+    throw error;
+  }
+}
+
 interface WeeklyEntryWithWord {
     id: number;
     word: {

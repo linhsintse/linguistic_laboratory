@@ -1,7 +1,9 @@
 // --- Type Definitions ---
 interface VocabularyWord {
   id: number;
-  wordText: string;
+  word: {
+    text: string;
+  };
   dayOfWeek: number;
   position: number;
 }
@@ -125,7 +127,7 @@ async function createAndPopulateCalendar() {
         words.forEach(word => {
             const dayShort = Object.keys(DAY_MAP).find(key => DAY_MAP[key] === word.dayOfWeek);
             if (dayShort && wordsByDay[dayShort]) {
-                wordsByDay[dayShort][word.position] = word.wordText;
+                wordsByDay[dayShort][word.position] = word.word.text;
             }
         });
     }
