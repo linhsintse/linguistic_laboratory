@@ -19,6 +19,36 @@ export async function getWorksheets() {
 }
 
 /**
+ * Performs a best-effort auto-parsing of a word against the Morpheme table.
+ */
+export async function autoParseWord(inputWord: string) {
+  const normalizedWord = inputWord.trim().toLowerCase();
+  if (!normalizedWord) return [];
+
+  try {
+    const allMorphemes = await prisma.morpheme.findMany();
+
+    const matchedMorphemes = allMorphemes.filter(m => {
+      const cleanText = m.text.replace(/-/g, '').toLowerCase();
+      if (m.type === 'prefix') {
+        return normalizedWord.startsWith(cleanText);
+      } else if (m.type === 'suffix') {
+        return normalizedWord.endsWith(cleanText);
+      } else if (m.type === 'root') {
+        return normalizedWord.includes(cleanText);
+      }
+      return false;
+    });
+
+    // Sort by length descending (longest matches first)
+    return matchedMorphemes.sort((a, b) => b.text.length - a.text.length);
+  } catch (error) {
+    console.error("Database Error auto-parsing word:", error);
+    throw error;
+  }
+}
+
+/**
  * Creates a new worksheet.
  */
 export async function createWorksheet(name?: string) {

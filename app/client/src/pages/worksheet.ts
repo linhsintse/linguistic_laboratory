@@ -59,7 +59,7 @@ async function createNewSheet() {
         wordsByColumn = {};
         morphemesByColumn = {};
         await fetchWorksheets();
-        await createAndPopulateCalendar();
+        await createAndPopulateWorksheet();
     } catch (error) {
         console.error('Error creating worksheet:', error);
     }
@@ -104,22 +104,32 @@ function enterEditMode(slot: HTMLElement) {
 
     const wordTextSpan = slot.querySelector('.word-text') as HTMLAnchorElement;
     const currentWord = wordTextSpan ? wordTextSpan.innerText : '';
-    
+
     const input = document.createElement('input');
     input.type = 'text';
+    input.id = 'word-input';
     input.value = currentWord;
-    input.className = 'word-edit-input font-serif text-lg block leading-none mb-1 bg-transparent border-none p-0 w-full';
+    input.className = 'word-edit-input font-serif text-lg block leading-none mb-1 bg-white border border-gray-300 p-1 w-full rounded focus:ring-1 focus:ring-academic-blue focus:border-academic-blue';
     input.style.outline = 'none';
+
+    const tagContainer = document.createElement('div');
+    tagContainer.id = 'tag-container';
+    tagContainer.className = 'flex flex-wrap gap-1 mt-1 mb-2';
 
     if (wordTextSpan) {
         wordTextSpan.replaceWith(input);
+        input.after(tagContainer);
     } else {
         const placeholder = slot.querySelector('.font-serif.italic');
         if(placeholder) {
             placeholder.replaceWith(input);
+            input.after(tagContainer);
         }
     }
     input.focus();
+    if ((window as any).initAutoParser) {
+        (window as any).initAutoParser();
+    }
 
     let isSaving = false;
 
@@ -130,7 +140,7 @@ function enterEditMode(slot: HTMLElement) {
         const newWord = input.value.trim();
         const columnIndex = parseInt((slot as HTMLDivElement).dataset.colIndex!);
         const position = parseInt((slot as HTMLDivElement).dataset.position!);
-        
+
         const morphemeInput = slot.querySelector('.morpheme-guide') as HTMLInputElement;
         const newMorphemeString = morphemeInput ? morphemeInput.value.trim() : '';
 
@@ -138,31 +148,31 @@ function enterEditMode(slot: HTMLElement) {
             wordsByColumn[columnIndex] = [];
         }
         wordsByColumn[columnIndex][position] = newWord;
-        
+
         if (!morphemesByColumn[columnIndex]) {
             morphemesByColumn[columnIndex] = [];
         }
         morphemesByColumn[columnIndex][position] = newMorphemeString;
 
         await saveWordData(columnIndex, position, newWord, newMorphemeString);
-        await createAndPopulateCalendar();
+        await createAndPopulateWorksheet();
     };
 
-    input.addEventListener('blur', save);
+    // We don't save on word input blur anymore to allow interacting with suggested tags.
+    // Save happens on Enter or when blurring the morpheme guide.
     input.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
             save();
-            input.blur();
         }
     });
 }
 
 /**
- * Generates the calendar grid and populates it with words.
+ * Generates the worksheet grid and populates it with words.
  */
-export async function createAndPopulateCalendar() {
-    const calendarGrid = document.getElementById('calendar-grid') as HTMLDivElement;
-    if (!calendarGrid) return;
+export async function createAndPopulateWorksheet() {
+    const worksheetGrid = document.getElementById('worksheet-grid') as HTMLDivElement;
+    if (!worksheetGrid) return;
 
     if (worksheets.length === 0) {
         await fetchWorksheets();
@@ -173,7 +183,7 @@ export async function createAndPopulateCalendar() {
         worksheetName = worksheets[0].name || '';
     }
 
-    calendarGrid.innerHTML = '';
+    worksheetGrid.innerHTML = '';
     updateWorksheetDisplay();
 
     if (currentWorksheetId !== null) {
@@ -230,11 +240,11 @@ export async function createAndPopulateCalendar() {
                 }).join('')}
             </div>
         `;
-        calendarGrid.appendChild(dayColumn);
+        worksheetGrid.appendChild(dayColumn);
     }
 
      // Prevent clicks on morpheme inputs from bubbling up to the slot and triggering edit mode
-     calendarGrid.querySelectorAll('.morpheme-guide').forEach(input => {
+     worksheetGrid.querySelectorAll('.morpheme-guide').forEach(input => {
         input.addEventListener('click', (e) => {
             e.stopPropagation();
         });
@@ -246,13 +256,13 @@ export async function createAndPopulateCalendar() {
             const word = wordsByColumn[colIndex]?.[position] || '';
             if (word) {
                 await saveWordData(colIndex, position, word, target.value);
-                await createAndPopulateCalendar();
+                await createAndPopulateWorksheet();
             }
         });
     });
 
      // Add event listeners for editing
-     calendarGrid.querySelectorAll('.word-slot').forEach(slot => {
+     worksheetGrid.querySelectorAll('.word-slot').forEach(slot => {
         const editButton = slot.querySelector('.edit-button');
         if (editButton) {
             editButton.addEventListener('click', (e) => {
@@ -260,7 +270,7 @@ export async function createAndPopulateCalendar() {
                 enterEditMode(slot as HTMLElement);
             });
         }
-        
+
         slot.addEventListener('click', () => {
             const wordText = slot.querySelector('.word-text');
             if (!wordText) {
@@ -313,7 +323,7 @@ function addEventListeners() {
             createNewSheet();
         });
     }
-    
+
     if(prevSheetButton) {
         prevSheetButton.addEventListener('click', () => {
             if (currentWorksheetId !== null && worksheets.length > 1) {
@@ -322,7 +332,7 @@ function addEventListeners() {
                 currentWorksheetId = worksheets[nextIndex].id;
                 worksheetName = worksheets[nextIndex].name || '';
                 wordsByColumn = {};
-                createAndPopulateCalendar();
+                createAndPopulateWorksheet();
             }
         });
     }
@@ -333,7 +343,7 @@ function addEventListeners() {
             const ws = worksheets.find(w => w.id === currentWorksheetId);
             worksheetName = ws ? (ws.name || '') : '';
             wordsByColumn = {};
-            createAndPopulateCalendar();
+            createAndPopulateWorksheet();
         });
     }
 
@@ -350,9 +360,9 @@ function addEventListeners() {
     }
 }
 
-export function renderCalendar(element: HTMLElement) {
+export function renderWorksheet(element: HTMLElement) {
     element.innerHTML = `
-    <main class="calendar-container p-4">
+    <main class="worksheet-container p-4">
         <div class="flex justify-between items-center max-w-[95%] mx-auto mb-4 bg-white p-3 rounded-lg shadow-sm border border-gray-100">
              <div class="flex items-center space-x-4">
                 <input id="sheet-name-input" class="text-xl font-bold text-gray-800 border-b-2 border-transparent hover:border-gray-200 focus:border-academic-blue focus:outline-none bg-transparent py-1" placeholder="Sheet Name..." />
@@ -364,10 +374,10 @@ export function renderCalendar(element: HTMLElement) {
                 <button id="new-sheet-button" class="px-4 py-2 text-xs font-bold uppercase tracking-wider bg-black text-white rounded-md hover:bg-gray-800 transition-colors">New Sheet</button>
              </div>
         </div>
-        <div class="calendar-grid grid grid-cols-7 gap-0 bg-white border border-gray-200 shadow-lg max-w-[95%] mx-auto rounded-lg overflow-hidden" id="calendar-grid">
+        <div class="worksheet-grid grid grid-cols-7 gap-0 bg-white border border-gray-200 shadow-lg max-w-[95%] mx-auto rounded-lg overflow-hidden" id="worksheet-grid">
         </div>
     </main>
     `;
-    createAndPopulateCalendar();
+    createAndPopulateWorksheet();
     addEventListeners();
 }
