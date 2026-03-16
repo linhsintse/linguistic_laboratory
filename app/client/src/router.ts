@@ -1,5 +1,5 @@
 import Navigo from 'navigo';
-import { renderCalendar } from './pages/calendar';
+import { renderWorksheet } from './pages/worksheet';
 import { renderMorphologyLibrary } from './pages/morphology-library';
 import { renderVocabularyProgress } from './pages/vocabulary-progress';
 import { renderSearch } from './pages/search';
@@ -37,7 +37,7 @@ router.hooks({
 
 router.on({
     '/': () => {
-        renderCalendar(contentContainer);
+        renderWorksheet(contentContainer);
     },
     '/morphology-library': () => {
         renderMorphologyLibrary(contentContainer);

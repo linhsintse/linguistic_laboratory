@@ -17,7 +17,7 @@ export function renderHeader(element: HTMLElement, router: Navigo) {
             </div>
         </div>
         <nav class="flex items-center space-x-12">
-            <a class="nav-link" href="/" data-navigo>CALENDAR</a>
+            <a class="nav-link" href="/" data-navigo>WORKSHEET</a>
             <a class="nav-link" href="/morphology-library" data-navigo>MORPHOLOGY LIBRARY</a>
             <a class="nav-link" href="/vocabulary-progress" data-navigo>PROGRESS</a>
             <a class="nav-link" href="/search" data-navigo>SEARCH</a>
