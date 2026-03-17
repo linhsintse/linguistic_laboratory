@@ -116,11 +116,11 @@ app.get('/api/worksheets/:id/words', async (req, res) => {
 app.post('/api/worksheets/:id/words', async (req, res) => {
   try {
     const worksheetId = parseInt(req.params.id);
-    const { wordText, columnIndex, position, morphemeString } = req.body;
+    const { wordText, columnIndex, position, morphemeString, morphemes } = req.body;
 
     if (isNaN(worksheetId)) return res.status(400).json({ error: "Invalid worksheet ID." });
 
-    const newEntry = await addWordToWorksheet(worksheetId, wordText, columnIndex, position, morphemeString);
+    const newEntry = await addWordToWorksheet(worksheetId, wordText, columnIndex, position, morphemeString, morphemes);
     res.status(201).json(newEntry);
   } catch (error) {
     console.error("Failed to add word:", error);

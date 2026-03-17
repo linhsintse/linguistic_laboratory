@@ -167,7 +167,7 @@ function enterEditMode(slot: HTMLElement) {
     input.type = 'text';
     input.id = 'word-input';
     input.value = currentWord;
-    input.className = 'word-edit-input font-serif text-lg block leading-none mb-1 bg-white border border-gray-300 p-1 w-full rounded focus:ring-1 focus:ring-academic-blue focus:border-academic-blue';
+    input.className = 'word-edit-input font-serif text-lg block leading-none mb-1 bg-white border border-gray-300 p-1 w-full rounded focus:ring-1 focus:ring-academic-blue focus:border-academic-blue relative z-10';
     input.style.outline = 'none';
 
     const tagContainer = document.createElement('div');
@@ -190,7 +190,7 @@ function enterEditMode(slot: HTMLElement) {
     if (nonEditTagsContainer) {
         (nonEditTagsContainer as HTMLElement).style.display = 'none';
     }
-
+  
     // Pre-populate global state if we already have morphemes for this slot
     const colIndex = parseInt(slot.dataset.colIndex!);
     const pos = parseInt(slot.dataset.position!);
@@ -204,6 +204,66 @@ function enterEditMode(slot: HTMLElement) {
     if ((window as any).initAutoParser) {
         (window as any).initAutoParser();
     }
+
+    const colIndex = parseInt(slot.dataset.colIndex!);
+    const pos = parseInt(slot.dataset.position!);
+
+    let currentMorphemes: Morpheme[] = [];
+    if (morphemesByColumn[colIndex] && morphemesByColumn[colIndex][pos]) {
+        currentMorphemes = [...morphemesByColumn[colIndex][pos]];
+    }
+
+    const renderEditTags = () => {
+        tagContainer.innerHTML = '';
+        currentMorphemes.forEach((morpheme, index) => {
+            const tag = document.createElement('span');
+            tag.className = 'inline-flex items-center bg-blue-100 text-blue-800 text-[10px] font-medium mr-1 px-1.5 py-0.5 rounded-full';
+            tag.innerHTML = `${morpheme.displaytext}
+                <button type="button" class="ml-1 text-blue-600 hover:text-blue-800 focus:outline-none" data-index="${index}">
+                    &times;
+                </button>`;
+            tagContainer.appendChild(tag);
+        });
+
+        // Add the "+" button
+        const addBtn = document.createElement('button');
+        addBtn.className = 'add-morpheme-btn inline-flex items-center justify-center w-4 h-4 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 focus:outline-none';
+        addBtn.title = 'Add Morpheme';
+        addBtn.innerText = '+';
+        addBtn.onclick = (e) => {
+            e.preventDefault();
+            const text = prompt("Enter morpheme (e.g. pre-, dict, -ion):");
+            if (text && text.trim()) {
+                const trimmed = text.trim();
+                let type: 'prefix' | 'root' | 'suffix' = 'root';
+                if (trimmed.endsWith('-')) type = 'prefix';
+                else if (trimmed.startsWith('-')) type = 'suffix';
+
+                currentMorphemes.push({
+                    id: Date.now(), // Temp ID
+                    text: trimmed.replace(/-/g, ''),
+                    displaytext: trimmed,
+                    type,
+                    meaning: 'manual input'
+                });
+                renderEditTags();
+            }
+        };
+        tagContainer.appendChild(addBtn);
+
+        // Attach delete handlers
+        tagContainer.querySelectorAll('button[data-index]').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                const index = parseInt((btn as HTMLButtonElement).dataset.index!);
+                currentMorphemes.splice(index, 1);
+                renderEditTags();
+            });
+        });
+    };
+
+    renderEditTags();
+    input.focus();
 
     let isSaving = false;
 
@@ -381,9 +441,14 @@ export async function createAndPopulateWorksheet() {
                                 <span class="text-[10px] font-bold text-text-muted mt-1">${j + 1}</span>
                                 <div class="w-full">
                                     ${word ? `
-                                        <div class="flex justify-between items-start">
-                                            <a href="https://www.thewordfinder.com/define/${word.toLowerCase()}" target="_blank" class="word-text font-serif text-lg block leading-none mb-1 cursor-pointer hover:underline">${word}</a>
-                                            <span class="material-symbols-outlined edit-button text-[18px] text-gray-400 hover:text-black cursor-pointer select-none">edit</span>
+                                        <div class="flex justify-between items-start w-full relative group">
+                                            <div class="flex-1">
+                                                <a href="https://www.thewordfinder.com/define/${word.toLowerCase()}" target="_blank" class="word-text font-serif text-lg block leading-none mb-1 cursor-pointer hover:underline">${word}</a>
+                                            </div>
+                                            <div class="hidden group-hover:flex items-center gap-1 shrink-0 absolute right-0 top-0 bg-white">
+                                                <span class="material-symbols-outlined parse-button text-[18px] text-gray-400 hover:text-blue-500 cursor-pointer select-none" title="Auto-parse tags">auto_awesome</span>
+                                                <span class="material-symbols-outlined edit-button text-[18px] text-gray-400 hover:text-black cursor-pointer select-none" title="Edit tags">edit</span>
+                                            </div>
                                         </div>
                                     ` : `
                                         <span class="font-serif italic text-lg text-text-muted block leading-none mb-1 cursor-pointer">word...</span>
@@ -450,13 +515,13 @@ async function fetchWords(worksheetId: number): Promise<WorksheetEntry[]> {
 /**
  * Saves a word to the backend.
  */
-async function saveWordData(columnIndex: number, position: number, wordText: string, morphemeString: string) {
+async function saveWordData(columnIndex: number, position: number, wordText: string, morphemeString: string, morphemes: Morpheme[] = []) {
     if (currentWorksheetId === null) return;
     try {
         await fetch(`${API_URL}/worksheets/${currentWorksheetId}/words`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ wordText, columnIndex, position, morphemeString }),
+            body: JSON.stringify({ wordText, columnIndex, position, morphemeString, morphemes }),
         });
     } catch (error) {
         console.error('Failed to save word:', error);
