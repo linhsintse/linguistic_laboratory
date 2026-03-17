@@ -10,6 +10,7 @@
 
 /* Material Symbols Settings */
 .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24; }
+.material-symbols-outlined.parse-button, .material-symbols-outlined.edit-button { position: static !important; }
 
 /* Custom scrollbar for the table container */
 .table-container::-webkit-scrollbar { height: 6px; }
