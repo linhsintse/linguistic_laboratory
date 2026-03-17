@@ -50,20 +50,16 @@ function updateSlotUI(slot: HTMLElement, _colIndex: number, _position: number, w
 
     wFullDiv.innerHTML = `
         ${word ? `
-                                        <div class="flex justify-between items-start w-full relative group">
-                <div class="flex-1">
-                    <a href="https://www.thewordfinder.com/define/${word.toLowerCase()}" target="_blank" class="word-text font-serif text-lg block leading-none mb-1 cursor-pointer hover:underline">${word}</a>
-                </div>
-                                            <div class="hidden group-hover:flex items-center gap-1 shrink-0 absolute right-0 top-0 bg-white">
-                    <span class="material-symbols-outlined parse-button text-[18px] text-gray-400 hover:text-blue-500 cursor-pointer select-none" title="Auto-parse tags">autorenew</span>
-                    <span class="material-symbols-outlined edit-button text-[18px] text-gray-400 hover:text-black cursor-pointer select-none" title="Edit tags">edit</span>
-                </div>
+            <div class="flex justify-between items-start">
+                <a href="https://www.thewordfinder.com/define/${word.toLowerCase()}" target="_blank" class="word-text font-serif text-lg block leading-none mb-1 cursor-pointer hover:underline">${word}</a>
+                <span class="material-symbols-outlined edit-button text-[18px] text-gray-400 hover:text-black cursor-pointer select-none">edit</span>
             </div>
         ` : `
             <span class="font-serif italic text-lg text-text-muted block leading-none mb-1 cursor-pointer">word...</span>
         `}
-        <div class="morpheme-tags-container flex flex-wrap gap-1 mt-1 w-full">
+        <div class="morpheme-tags-container flex flex-wrap gap-1 mt-1">
             ${morphemeTagsHTML}
+            ${word ? `<button class="add-morpheme-btn inline-flex items-center justify-center w-4 h-4 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 focus:outline-none" title="Add Morpheme">+</button>` : ''}
         </div>
     `;
 
@@ -76,22 +72,11 @@ function updateSlotUI(slot: HTMLElement, _colIndex: number, _position: number, w
         });
     }
 
-    const parseBtn = slot.querySelector('.parse-button');
-    if (parseBtn) {
-        parseBtn.addEventListener('click', async (e) => {
+    const addMorphemeBtn = slot.querySelector('.add-morpheme-btn');
+    if (addMorphemeBtn) {
+        addMorphemeBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            if (!word) return;
-            try {
-                const response = await fetch(`${API_URL}/morphemes/parse?word=${word}`);
-                if (response.ok) {
-                    const parsedMorphemes = await response.json();
-                    morphemesByColumn[_colIndex][_position] = parsedMorphemes;
-                    await saveWordData(_colIndex, _position, word, "", parsedMorphemes);
-                    updateSlotUI(slot, _colIndex, _position, word, parsedMorphemes);
-                }
-            } catch (error) {
-                console.error('Error auto parsing on click:', error);
-            }
+            enterEditMode(slot);
         });
     }
 
@@ -200,14 +185,24 @@ function enterEditMode(slot: HTMLElement) {
         }
     }
 
-    // Hide the non-edit tags and tools
+    // Hide the non-edit tags
     const nonEditTagsContainer = slot.querySelector('.morpheme-tags-container');
     if (nonEditTagsContainer) {
         (nonEditTagsContainer as HTMLElement).style.display = 'none';
     }
-    const toolsContainer = slot.querySelector('.group-hover\\:flex');
-    if (toolsContainer) {
-        (toolsContainer as HTMLElement).style.display = 'none';
+  
+    // Pre-populate global state if we already have morphemes for this slot
+    const colIndex = parseInt(slot.dataset.colIndex!);
+    const pos = parseInt(slot.dataset.position!);
+    if (morphemesByColumn[colIndex] && morphemesByColumn[colIndex][pos]) {
+        (window as any).selectedMorphemes = [...morphemesByColumn[colIndex][pos]];
+    } else {
+        (window as any).selectedMorphemes = [];
+    }
+
+    input.focus();
+    if ((window as any).initAutoParser) {
+        (window as any).initAutoParser();
     }
 
     const colIndex = parseInt(slot.dataset.colIndex!);
@@ -280,6 +275,27 @@ function enterEditMode(slot: HTMLElement) {
         const columnIndex = parseInt((slot as HTMLDivElement).dataset.colIndex!);
         const position = parseInt((slot as HTMLDivElement).dataset.position!);
 
+        // Get tags from the global selectedMorphemes if the initAutoParser script ran.
+        // Wait, the main.ts currently handles updating it. Let's just pass an empty string
+        // or a reconstructed string.
+        // We will fetch selectedMorphemes from window if needed.
+        let newMorphemeString = '';
+        if ((window as any).selectedMorphemes) {
+            const selected = (window as any).selectedMorphemes as Morpheme[];
+            const prefixes = selected.filter(m => m.type === 'prefix').map(m => m.text);
+            const roots = selected.filter(m => m.type === 'root').map(m => `[${m.text}]`);
+            const suffixes = selected.filter(m => m.type === 'suffix').map(m => m.text);
+
+            let str = "";
+            for (let p of prefixes) { str += p; }
+            for (let r of roots) { str += r; }
+            for (let s of suffixes) {
+                if (!str.endsWith("-") && str !== "" && !s.startsWith("-")) str += "-";
+                str += s;
+            }
+            newMorphemeString = str;
+        }
+
         if (!wordsByColumn[columnIndex]) {
             wordsByColumn[columnIndex] = [];
         }
@@ -288,11 +304,31 @@ function enterEditMode(slot: HTMLElement) {
         if (!morphemesByColumn[columnIndex]) {
             morphemesByColumn[columnIndex] = [];
         }
-        morphemesByColumn[columnIndex][position] = currentMorphemes;
+        morphemesByColumn[columnIndex][position] = (window as any).selectedMorphemes || [];
 
-        await saveWordData(columnIndex, position, newWord, "", currentMorphemes);
-        updateSlotUI(slot, columnIndex, position, newWord, currentMorphemes);
+        // Ensure tags are fully loaded. If we are saving right away on enter, the blur hasn't fired yet
+        // or fetched suggestions. Let's do a fast check if we need to fetch.
+        let morphemes = (window as any).selectedMorphemes || [];
+        if (newWord && newWord !== currentWord && (window as any).lastFetchedWord !== newWord) {
+            try {
+                const response = await fetch(`${API_URL}/morphemes/parse?word=${newWord}`);
+                if (response.ok) {
+                    morphemes = await response.json();
+                    morphemesByColumn[columnIndex][position] = morphemes;
+                }
+            } catch (error) {
+                console.error('Error auto parsing on save:', error);
+            }
+        }
 
+        await saveWordData(columnIndex, position, newWord, newMorphemeString);
+        updateSlotUI(slot, columnIndex, position, newWord, morphemes);
+
+        // Let's clear the global state so it's clean for the next edit
+        (window as any).selectedMorphemes = null;
+        (window as any).lastFetchedWord = null;
+
+        // We only move focus to the next slot if the save was triggered by enter, not blur
         return true;
     };
 
@@ -448,28 +484,13 @@ export async function createAndPopulateWorksheet() {
             }
         });
 
-        // Handle Parse Morpheme Button click
-        const parseBtn = slot.querySelector('.parse-button');
-        if (parseBtn) {
-            parseBtn.addEventListener('click', async (e) => {
+        // Handle Add Morpheme Button click
+        const addMorphemeBtn = slot.querySelector('.add-morpheme-btn');
+        if (addMorphemeBtn) {
+            addMorphemeBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
-                const w = slot.querySelector('.word-text');
-                if (!w) return;
-                const word = (w as HTMLElement).innerText.trim();
-                const colIndex = parseInt((slot as HTMLDivElement).dataset.colIndex!);
-                const position = parseInt((slot as HTMLDivElement).dataset.position!);
-                if (!word) return;
-                try {
-                    const response = await fetch(`${API_URL}/morphemes/parse?word=${word}`);
-                    if (response.ok) {
-                        const morphemes = await response.json();
-                        morphemesByColumn[colIndex][position] = morphemes;
-                        await saveWordData(colIndex, position, word, "", morphemes);
-                        updateSlotUI(slot as HTMLElement, colIndex, position, word, morphemes);
-                    }
-                } catch (error) {
-                    console.error('Error auto parsing on click:', error);
-                }
+                enterEditMode(slot as HTMLElement);
+                // Also trigger focusing the input and maybe show a prompt or just let them edit
             });
         }
     });
