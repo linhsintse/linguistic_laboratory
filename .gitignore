@@ -4,4 +4,5 @@
 /app/client/dist
 /app/server/prisma/dev.db
 /app/calendar.ts
-/app/server/src/etymology.csv
+/app/server/prisma/etymology.csv
+.DS_Store

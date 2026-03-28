@@ -14,6 +14,7 @@ import {
   createAccount,
   updateAccount,
   updateWorksheetColumnName,
+  getWordEtymology
 } from './database';
 
 const app = express();
@@ -150,6 +151,28 @@ app.get('/api/account', async (req, res) => {
         console.error("Failed to fetch account:", error);
         res.status(500).json({ error: "Internal server error while fetching account." });
     }
+});
+
+app.get('/api/etymology/:word', async (req, res) => {
+  try {
+    // Normalize the word to lowercase to match the database format
+    const word = req.params.word.toLowerCase();
+    
+    // Allow an optional language query parameter (e.g., ?lang=fr), defaulting to English
+    const lang = (req.query.lang as string) || 'English'; 
+
+    const etymologyData = await getWordEtymology(word, lang);
+    
+    // Return a 404 if no records match, which our frontend uses to display an empty state
+    if (!etymologyData || etymologyData.length === 0) {
+      return res.status(404).json({ error: "No etymology data found for this term." });
+    }
+
+    res.status(200).json(etymologyData);
+  } catch (error) {``
+    console.error("Failed to fetch etymology:", error);
+    res.status(500).json({ error: "Internal server error." });
+  }
 });
 
 app.post('/api/account', async (req, res) => {

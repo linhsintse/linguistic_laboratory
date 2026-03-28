@@ -289,6 +289,27 @@ export async function updateAccount(id: number, data: { email?: string; username
   }
 }
 
+/**
+ * Fetches etymological origins for a specific word.
+ * Defaults to English ('en') to filter out foreign homographs.
+ */
+export async function getWordEtymology(term: string, lang: string = 'English') {
+  try {
+    return await prisma.etymology.findMany({
+      where: {
+        term: term,
+        lang: lang
+      },
+      // Order by position to maintain compound/nested structures accurately
+      orderBy: {
+        position: 'asc'
+      }
+    });
+  } catch (error) {
+    console.error("Database Error fetching etymology:", error);
+    throw error;
+  }
+}
 
 
 
