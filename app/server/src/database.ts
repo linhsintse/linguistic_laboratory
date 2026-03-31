@@ -9,7 +9,9 @@ const prisma = new PrismaClient();
 export async function getWorksheets(userId: number) {
   try {
     return await prisma.worksheet.findMany({
-      where: { userId },
+      where: { 
+        userId: userId 
+      },
       orderBy: {
         createdAt: 'desc',
       },
@@ -99,14 +101,15 @@ export async function createWorksheet(userId: number, name?: string) {
   }
 }
 
-/**
- * Updates a worksheet's name.
- */
 export async function updateWorksheetName(userId: number, id: number, name: string) {
   try {
-    return await prisma.worksheet.update({
-      where: { id, userId },
+    await prisma.worksheet.updateMany({
+      where: { id: id, userId: userId },
       data: { name },
+    });
+    
+    return await prisma.worksheet.findUnique({
+      where: { id: id }
     });
   } catch (error) {
     console.error("Database Error updating worksheet name:", error);
@@ -114,13 +117,10 @@ export async function updateWorksheetName(userId: number, id: number, name: stri
   }
 }
 
-/**
- * Updates a worksheet column's name.
- */
 export async function updateWorksheetColumnName(userId: number, worksheetId: number, columnIndex: number, name: string) {
   try {
     const worksheet = await prisma.worksheet.findFirst({
-        where: { id: worksheetId, userId }
+        where: { id: worksheetId, userId: userId }
     });
     if (!worksheet) {
         throw new Error("Worksheet not found or unauthorized");
@@ -141,13 +141,11 @@ export async function updateWorksheetColumnName(userId: number, worksheetId: num
   }
 }
 
-/**
- * Deletes a worksheet.
- */
 export async function deleteWorksheet(userId: number, id: number) {
   try {
-    await prisma.worksheet.delete({
-      where: { id, userId },
+    // Use deleteMany to safely verify ownership before deletion
+    await prisma.worksheet.deleteMany({
+      where: { id: id, userId: userId },
     });
   } catch (error) {
     console.error("Database Error deleting worksheet:", error);
@@ -155,9 +153,6 @@ export async function deleteWorksheet(userId: number, id: number) {
   }
 }
 
-/**
- * Fetches entries and words for a specific worksheet.
- */
 export async function getWordsForWorksheet(userId: number, worksheetId: number) {
   try {
     const worksheet = await prisma.worksheet.findFirst({
@@ -506,4 +501,3 @@ export async function getWordEtymology(term: string, lang: string = 'en') {
     throw error;
   }
 }
-
