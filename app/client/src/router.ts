@@ -30,8 +30,8 @@ router.hooks({
         if (!authService.isAuthenticated() && match.url !== 'account' && match.url !== 'about') {
             router.navigate('/account');
             done(false);
-        } else if (match.url === '' && authService.getUser()?.role === 'teacher') {
-             // Teachers don't have a default worksheet view, redirect to students
+        } else if (match.url === '' && authService.getUser()?.role === 'teacher' && !match.queryString?.includes('studentId')) {
+             // Teachers don't have a default worksheet view, redirect to students unless viewing a specific student
              router.navigate('/students');
              done(false);
         } else {

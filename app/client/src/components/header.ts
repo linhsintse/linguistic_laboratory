@@ -4,8 +4,6 @@ import { authService } from '../auth';
 export function renderHeader(element: HTMLElement, router: Navigo) {
     const user = authService.getUser();
     const role = user ? user.role : null;
-    const name = user ? user.firstname : null;
-
 
     let navLinks = '';
 

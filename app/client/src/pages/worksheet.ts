@@ -500,6 +500,11 @@ export function renderWorksheet(element: HTMLElement) {
         currentStudentId = null;
     }
 
+    const sheetIdParam = urlParams.get('sheetId');
+    if (sheetIdParam) {
+        currentWorksheetId = parseInt(sheetIdParam);
+    }
+
     const isTeacherView = currentStudentId !== null && authService.getUser()?.role !== 'student';
     const teacherBanner = isTeacherView ?
         `<div class="bg-blue-50 text-blue-800 p-4 max-w-[95%] mx-auto mb-4 rounded flex justify-between items-center shadow-sm border border-blue-100">

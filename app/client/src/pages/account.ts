@@ -208,12 +208,17 @@ function setupEditForm(container: HTMLElement) {
         const username = (document.getElementById('username') as HTMLInputElement).value;
         const nameInput = (document.getElementById('name') as HTMLInputElement).value;
         const passwordInput = (document.getElementById('password') as HTMLInputElement).value;
+        const teacherSelect = document.getElementById('teacherId') as HTMLSelectElement;
 
         const data: any = {
             email,
             username,
             name: nameInput ? nameInput : null,
         };
+
+        if (teacherSelect) {
+            data.teacherId = teacherSelect.value;
+        }
 
         if (passwordInput) {
             data.password = passwordInput;

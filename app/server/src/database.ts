@@ -9,9 +9,7 @@ const prisma = new PrismaClient();
 export async function getWorksheets(userId: number) {
   try {
     return await prisma.worksheet.findMany({
-      where: { 
-        userId: userId 
-      },
+      where: { userId },
       orderBy: {
         createdAt: 'desc',
       },
@@ -101,10 +99,13 @@ export async function createWorksheet(userId: number, name?: string) {
   }
 }
 
+/**
+ * Updates a worksheet's name.
+ */
 export async function updateWorksheetName(userId: number, id: number, name: string) {
   try {
-    await prisma.worksheet.updateMany({
-      where: { id: id, userId: userId },
+    return await prisma.worksheet.update({
+      where: { id, userId },
       data: { name },
     });
     
@@ -117,10 +118,13 @@ export async function updateWorksheetName(userId: number, id: number, name: stri
   }
 }
 
+/**
+ * Updates a worksheet column's name.
+ */
 export async function updateWorksheetColumnName(userId: number, worksheetId: number, columnIndex: number, name: string) {
   try {
     const worksheet = await prisma.worksheet.findFirst({
-        where: { id: worksheetId, userId: userId }
+        where: { id: worksheetId, userId }
     });
     if (!worksheet) {
         throw new Error("Worksheet not found or unauthorized");
@@ -141,11 +145,13 @@ export async function updateWorksheetColumnName(userId: number, worksheetId: num
   }
 }
 
+/**
+ * Deletes a worksheet.
+ */
 export async function deleteWorksheet(userId: number, id: number) {
   try {
-    // Use deleteMany to safely verify ownership before deletion
-    await prisma.worksheet.deleteMany({
-      where: { id: id, userId: userId },
+    await prisma.worksheet.delete({
+      where: { id, userId },
     });
   } catch (error) {
     console.error("Database Error deleting worksheet:", error);
@@ -153,6 +159,9 @@ export async function deleteWorksheet(userId: number, id: number) {
   }
 }
 
+/**
+ * Fetches entries and words for a specific worksheet.
+ */
 export async function getWordsForWorksheet(userId: number, worksheetId: number) {
   try {
     const worksheet = await prisma.worksheet.findFirst({
